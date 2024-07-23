@@ -1,7 +1,7 @@
 const { app, BrowserWindow, BrowserView, ipcMain, Menu, Tray, nativeImage, Notification, MenuItem, session } = require('electron');
 const Store = require('electron-store');
-const path  = require('node:path');
-const fs    = require('node:fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const isDev = require('electron-is-dev');
 
 // Single Electron Instance
@@ -10,29 +10,42 @@ if (!app.requestSingleInstanceLock()) {
 	return;
 }
 
-class WhatsAppElectron
-{
+class WhatsAppElectron {
 	constructor() {
-		this.store    = new Store();
+		this.store = new Store();
 		this.baseIcon = isDev ? path.join(__dirname, "../assets/whatsapp-icon-512x512.png") : path.join(process.resourcesPath, "app.asar.unpacked/assets/whatsapp-icon-512x512.png");
-		this.isQuit   = false;
+		this.isQuit = false;
 
 		this.bounds = this.store.get("bounds");
-		if (this.bounds == undefined)
-		{
-			this.bounds = {width: 1024, height: 768, x: null, y: null};
+		if (this.bounds == undefined) {
+			this.bounds = { width: 1024, height: 768, x: null, y: null };
 			this.store.set("bounds", this.bounds);
 		}
 
-		this.accounts  = this.store.get("accounts");
+		this.accounts = this.store.get("accounts");
 		this.instances = {};
-		if (this.accounts == undefined)
-		{
-			this.accounts = [{id: "default", name: "Default Account"}];
+		if (this.accounts == undefined) {
+			this.accounts = [{ id: "default", name: "Default Account" }];
 			this.store.set("accounts", this.accounts);
 		}
 
 		this.menuTemplate = [
+			{
+				label: "Payments",
+				submenu: [
+					{
+						label: "Accounts",
+						enabled: true,
+						accelerator: "Alt+a",
+						click: () => {
+							const view = this.window.getBrowserView();
+							if (view != null)
+								this.window.removeBrowserView(view);
+							this.window.setTitle(`${Constants.appName} :: Accounts`);
+						}
+					}
+				]
+			},
 			{
 				label: "WhatsApp",
 				submenu: [
@@ -49,71 +62,71 @@ class WhatsAppElectron
 					}
 				]
 			},
+	
 			{
 				label: 'Help',
 				submenu:
-				[
-					{
-						label: "Version undefined by me",
-						enabled: false
-					},
-					{ type: 'separator' },
-					{
-						label: 'Open Development Tool',
-						accelerator: "Ctrl+Shift+I",
-						click: () => {
-							const bv = this.window.getBrowserView();
-							if (bv != null)
-								bv.webContents.openDevTools();
-							else
-								this.window.webContents.openDevTools();
-						}
-					},
-					{
-						label: "Force Reload (instance)",
-						accelerator: "Ctrl+R",
-						click: () => {
-							const bv = this.window.getBrowserView();
-							if (bv != null)
-							{
-								bv.webContents.reload();
-								//bv.webContents.loadURL(Constants.whatsapp.url, { userAgent: Constants.whatsapp.userAgent });
-								setTimeout(() => {
-									bv.webContents.send(Constants.event.initWhatsAppInstance, {id: bv._id, name: bv._name, constants: Constants});
-								}, 1000);
+					[
+						{
+							label: "Version undefined by me",
+							enabled: false
+						},
+						{ type: 'separator' },
+						{
+							label: 'Open Development Tool',
+							accelerator: "Ctrl+Shift+I",
+							click: () => {
+								const bv = this.window.getBrowserView();
+								if (bv != null)
+									bv.webContents.openDevTools();
+								else
+									this.window.webContents.openDevTools();
 							}
-							else
-							{
-								this.window.webContents.reload();
-								setTimeout(() => {
-									this.window.webContents.send(Constants.event.initResources, {constants: Constants});
-								}, 1000);
+						},
+						{
+							label: "Force Reload (instance)",
+							accelerator: "Ctrl+R",
+							click: () => {
+								const bv = this.window.getBrowserView();
+								if (bv != null) {
+									bv.webContents.reload();
+									//bv.webContents.loadURL(Constants.whatsapp.url, { userAgent: Constants.whatsapp.userAgent });
+									setTimeout(() => {
+										bv.webContents.send(Constants.event.initWhatsAppInstance, { id: bv._id, name: bv._name, constants: Constants });
+									}, 1000);
+								}
+								else {
+									this.window.webContents.reload();
+									setTimeout(() => {
+										this.window.webContents.send(Constants.event.initResources, { constants: Constants });
+									}, 1000);
+								}
+							}
+						},
+						{ type: 'separator' },
+						{
+							label: "Quit",
+							click: () => {
+								this.isQuit = true;
+								app.quit();
 							}
 						}
-					},
-					{ type: 'separator' },
-					{
-						label: "Quit",
-						click: () => {
-							this.isQuit = true;
-							app.quit();
-						}
-					}
-				]
-			}
+					]
+			},
+			
 		];
 	}
 
 	_initElectronApp() {
 		app.userAgentFallback = Constants.whatsapp.userAgent;
-		
+
 		if (process.platform == "win32")
 			app.setAppUserModelId(Constants.appName);
 	}
 
 	init() {
 		this._initElectronApp();
-		
+
 		this.createWindow();
 
 		for (const item of this.accounts)
@@ -129,9 +142,9 @@ class WhatsAppElectron
 			this.setCurrentViewByIdx(0);
 
 		const menu = Menu.buildFromTemplate([
-			{label: "Show/Hide", click: () => { this.showHide(); }},
-			{type: "separator"},
-			{label: "Quit", click: () => { this.isQuit = true; app.quit(); }}
+			{ label: "Show/Hide", click: () => { this.showHide(); } },
+			{ type: "separator" },
+			{ label: "Quit", click: () => { this.isQuit = true; app.quit(); } }
 		]);
 
 		this.tray = new Tray(this.baseIcon);
@@ -166,13 +179,13 @@ class WhatsAppElectron
 			//console.log("Received updated badge icon...");
 			this.tray.setImage(nativeImage.createFromDataURL(data));
 		});
-		
+
 		ipcMain.on(Constants.event.reloadWhatsAppInstance, (envet, id) => {
 			console.log("Received reloadWhatsAppInstance...", id);
 			const bv = this.instances[id].view;
 			bv.webContents.reload();
 			setTimeout(() => {
-				bv.webContents.send(Constants.event.initWhatsAppInstance, {id: bv._id, name: bv._name, constants: Constants});
+				bv.webContents.send(Constants.event.initWhatsAppInstance, { id: bv._id, name: bv._name, constants: Constants });
 			}, 1000);
 		});
 		ipcMain.on(Constants.event.clearWorkersAndReload, (envet, id) => {
@@ -180,14 +193,14 @@ class WhatsAppElectron
 			const ses = session.fromPartition(`persist:${id}`);
 			ses.flushStorageData();
 			ses.clearStorageData({ storages: ['serviceworkers'] });
-			
+
 			const bv = this.instances[id].view;
 			bv.webContents.reload();
 			setTimeout(() => {
-				bv.webContents.send(Constants.event.initWhatsAppInstance, {id: bv._id, name: bv._name, constants: Constants});
+				bv.webContents.send(Constants.event.initWhatsAppInstance, { id: bv._id, name: bv._name, constants: Constants });
 			}, 1000);
 		});
-		
+
 		ipcMain.handle(Constants.event.getAccountsList, () => {
 			//console.log("From Renderer - getAccountsList", data);
 			return this.accounts;
@@ -198,88 +211,80 @@ class WhatsAppElectron
 			this.accounts.push(data);
 			this.store.set("accounts", this.accounts);
 			this.createView(data.id, data.name);
-			
+
 			this.menu = Menu.buildFromTemplate(this.menuTemplate);
 			Menu.setApplicationMenu(this.menu);
-			
+
 			this.window.webContents.send(Constants.event.reloadAccounts);
 		});
-		
+
 		ipcMain.on(Constants.event.updateAccount, (event, data) => {
 			//console.log("From Renderer - updateAccount", data);
-			for (const idx in this.accounts)
-			{
-				if (this.accounts[idx].id == data.id)
-				{
+			for (const idx in this.accounts) {
+				if (this.accounts[idx].id == data.id) {
 					this.accounts[idx].name = data.name;
 					this.store.set("accounts", this.accounts);
 					break;
 				}
 			}
-			
+
 			this.instances[data.id].name = data.name;
 			this.instances[data.id].view._name = data.name;
-			
-			for (const item of this.menuTemplate[0].submenu)
-			{
-				if (item.id == data.id)
-				{
+
+			for (const item of this.menuTemplate[0].submenu) {
+				if (item.id == data.id) {
 					item.label = data.name;
 					break;
 				}
 			}
-			
+
 			this.menu = Menu.buildFromTemplate(this.menuTemplate);
 			Menu.setApplicationMenu(this.menu);
-			
+
 			this.window.webContents.send(Constants.event.reloadAccounts);
 		});
-		
+
 		ipcMain.on(Constants.event.deleteAccount, (event, id) => {
 			//console.log("From Renderer - deleteAccount", id);
 			let toDelete = null;
-			for (let idx = 0; idx < this.accounts.length; idx++)
-			{
-				if (this.accounts[idx].id == id)
-				{
+			for (let idx = 0; idx < this.accounts.length; idx++) {
+				if (this.accounts[idx].id == id) {
 					toDelete = idx;
 					break;
 				}
 			}
-			
+
 			this.accounts.splice(toDelete, 1);
 			this.store.set("accounts", this.accounts);
-			
+
 			delete this.instances[id];
-			
+
 			this.menuTemplate[0].submenu.splice(toDelete + 2, 1);
-			for (let idx = 0; idx < this.menuTemplate[0].submenu.length; idx++)
-			{
-				if (this.menuTemplate[0].submenu[idx].type == "radio")
-				{
+			for (let idx = 0; idx < this.menuTemplate[0].submenu.length; idx++) {
+				if (this.menuTemplate[0].submenu[idx].type == "radio") {
 					if (idx - 2 < 10)
-						this.menuTemplate[0].submenu[idx].accelerator = `Alt+${idx-1}`;
-						
+						this.menuTemplate[0].submenu[idx].accelerator = `Alt+${idx - 1}`;
+
 					if (idx - 2 == 10)
 						this.menuTemplate[0].submenu[idx].accelerator = `Alt+0`;
-						
+
 					if (idx - 2 > 10)
 						delete this.menuTemplate[0].submenu[idx].accelerator;
 				}
 			}
 			this.menu = Menu.buildFromTemplate(this.menuTemplate);
 			Menu.setApplicationMenu(this.menu);
-			
+
 			// remove storage path
 			const ses = session.fromPartition(`persist:${id}`);
 			ses.clearStorageData().then(() => {
 				const dir = ses.getStoragePath();
 				fs.rmSync(dir, { recursive: true, force: true });
 			});
-			
+
 			this.window.webContents.send(Constants.event.reloadAccounts);
 		});
-		
+
 		ipcMain.on(Constants.event.gotoAccount, (event, id) => {
 			//console.log("From Renderer - gotoAccount", id);
 			this.setCurrentView(id);
@@ -297,8 +302,7 @@ class WhatsAppElectron
 			}
 		};
 
-		if (this.bounds.x != null)
-		{
+		if (this.bounds.x != null) {
 			options.x = this.bounds.x + Constants.offsets.window.x;
 			options.y = this.bounds.y + Constants.offsets.window.y;
 		}
@@ -306,14 +310,13 @@ class WhatsAppElectron
 		this.window = new BrowserWindow(options);
 		this.window.loadFile(isDev ? "index-bw.html" : "./src/index-bw.html");
 
-		this.window.webContents.send(Constants.event.initResources, {constants: Constants});
+		this.window.webContents.send(Constants.event.initResources, { constants: Constants });
 
 		this.window.on("move", () => { this.storeWindowBounds(); });
 		this.window.on("resize", () => { this.storeWindowBounds(); });
 
 		this.window.on("close", (e) => {
-			if (this.isQuit)
-			{
+			if (this.isQuit) {
 				app.quit();
 				return;
 			}
@@ -321,9 +324,9 @@ class WhatsAppElectron
 			e.preventDefault();
 			this.window.hide();
 		});
-		
+
 		this.window.setTitle(`${Constants.appName} :: Accounts`);
-		
+
 		this.window.on("focus", () => {
 			const bv = this.window.getBrowserView();
 			bv.webContents.focus();
@@ -331,7 +334,7 @@ class WhatsAppElectron
 	}
 
 	createView(id, name) {
-		this.instances[id] = {id: id, name: name, unread: 0, view: null};
+		this.instances[id] = { id: id, name: name, unread: 0, view: null };
 
 		const view = new BrowserView({
 			webPreferences: {
@@ -343,7 +346,7 @@ class WhatsAppElectron
 		});
 		this.instances[id].view = view;
 
-		view._id   = id;
+		view._id = id;
 		view._name = name;
 
 		view.setBackgroundColor('white');
@@ -352,9 +355,9 @@ class WhatsAppElectron
 			require('electron').shell.openExternal(details.url);
 			return { action: 'deny' };
 		});
-		
+
 		setTimeout(function () {
-			view.webContents.send(Constants.event.initWhatsAppInstance, {id: id, name: name, constants: Constants});
+			view.webContents.send(Constants.event.initWhatsAppInstance, { id: id, name: name, constants: Constants });
 		}, 2000);
 		//view.webContents.send(Constants.event.initWhatsAppInstance, {id: id, name: name, constants: Constants});
 
@@ -367,12 +370,11 @@ class WhatsAppElectron
 				this.setCurrentView(id);
 			}
 		};
-		
+
 		if (this.menuTemplate[0].submenu.length == 1)
-			this.menuTemplate[0].submenu.push({type: "separator"});
-		
-		if (this.menuTemplate[0].submenu.length < (10 + 2))
-		{
+			this.menuTemplate[0].submenu.push({ type: "separator" });
+
+		if (this.menuTemplate[0].submenu.length < (10 + 2)) {
 			const idx = this.menuTemplate[0].submenu.length - 1;
 			if (idx < 10)
 				menuItem.accelerator = `Alt+${idx}`;
@@ -393,10 +395,8 @@ class WhatsAppElectron
 		this.window.setTitle(`${Constants.appName} :: ${instance.name}`);
 		this.window.setBrowserView(instance.view);
 
-		if (this.menu != undefined)
-		{
-			for (const menu of this.menu.items[0].submenu.items)
-			{
+		if (this.menu != undefined) {
+			for (const menu of this.menu.items[0].submenu.items) {
 				if (menu.type == "radio" && menu.id == id)
 					menu.checked = true;
 			}
@@ -409,9 +409,9 @@ class WhatsAppElectron
 	setViewBounds(id, bounds = null) {
 		bounds = bounds == null ? this.bounds : bounds;
 		this.instances[id].view.setBounds({
-			x: 0 + Constants.offsets.view.x, 
-			y: 0 + Constants.offsets.view.y, 
-			width: bounds.width + Constants.offsets.view.width, 
+			x: 0 + Constants.offsets.view.x,
+			y: 0 + Constants.offsets.view.y,
+			width: bounds.width + Constants.offsets.view.width,
 			height: bounds.height + Constants.offsets.view.height
 		});
 	}
@@ -429,8 +429,7 @@ class WhatsAppElectron
 		for (const id in this.instances)
 			counter += this.instances[id].unread;
 
-		if (counter == 0)
-		{
+		if (counter == 0) {
 			this.tray.setImage(this.baseIcon);
 			return
 		}
@@ -439,28 +438,22 @@ class WhatsAppElectron
 	}
 
 	showHide(hide = true) {
-		if (!this.window.isFocused())
-		{
-			if (this.window.isVisible())
-			{
+		if (!this.window.isFocused()) {
+			if (this.window.isVisible()) {
 				this.window.focus();
 			}
-			else if (this.window.isMinimized())
-			{
+			else if (this.window.isMinimized()) {
 				this.window.restore();
 				this.window.focus();
 			}
-			else
-			{
+			else {
 				this.window.show();
 				this.window.restore();
 				this.window.focus();
 			}
 		}
-		else
-		{
-			if (hide)
-			{
+		else {
+			if (hide) {
 				this.window.hide();
 			}
 		}
@@ -468,7 +461,7 @@ class WhatsAppElectron
 }
 
 let Constants = {};
-const ws      = new WhatsAppElectron();
+const ws = new WhatsAppElectron();
 
 app.whenReady().then(() => {
 	Constants = require("./constants").init(app.getSystemLocale());
